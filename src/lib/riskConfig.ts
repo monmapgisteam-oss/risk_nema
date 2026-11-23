@@ -15,19 +15,65 @@ export const OVERLAY_SERVICE = {
 
 /** Hazard zoning: per-hazard polygon layers with a 1–5 class field. */
 export const HAZARD_SERVICE = `${BASE}/Hazard/FeatureServer`;
-export type HazardZone = { layerId: number; field: string; label: string };
-export const HAZARD_ZONES: Record<string, HazardZone> = {
-  eq: { layerId: 23, field: "h01a", label: "Газар хөдлөлтийн эрчим (500 жил)" },
-  ds: { layerId: 24, field: "h02", label: "Шороон шуурганы бүс" },
-  ws: { layerId: 25, field: "h03a", label: "Салхин шуурганы бүс" },
-  ss: { layerId: 26, field: "h04a", label: "Цасан шуурганы бүс" },
-  dr: { layerId: 15, field: "h05", label: "Гангийн бүс" },
-  dz: { layerId: 28, field: "h06b", label: "Зудын бүс" },
-  fl: { layerId: 31, field: "h07d", label: "Үерийн нэгдсэн бүс" },
-  wf: { layerId: 7, field: "h08c", label: "Түймрийн нэгдсэн бүс" },
-  zd: { layerId: 3, field: "h09d", label: "Зоонозын нэгдсэн бүс" },
-  lt: { layerId: 2, field: "h11a", label: "Аянгын бүс" },
+export type HazardZone = {
+  layerId: number;
+  /** Class field (1–5); one layer can carry several variants' fields. */
+  field: string;
+  label: string;
+  /** Short name for the variant picker. */
+  short: string;
 };
+/**
+ * Zoning variants per hazard; the first is the default. Layers without a
+ * usable 1–5 class field (6, 11, 13, 14, 27, 29) are left out.
+ */
+export const HAZARD_VARIANTS: Record<string, HazardZone[]> = {
+  eq: [
+    { layerId: 23, field: "h01a", label: "Газар хөдлөлтийн эрчим (500 жил)", short: "500 жил" },
+    { layerId: 22, field: "h01b", label: "Газар хөдлөлтийн эрчим (2500 жил)", short: "2500 жил" },
+  ],
+  ds: [{ layerId: 24, field: "h02", label: "Шороон шуурганы бүс", short: "Эмзэг бүс" }],
+  ws: [
+    { layerId: 25, field: "h03a", label: "Салхин шуурганы бүс", short: "Эмзэг бүс" },
+    { layerId: 17, field: "h03f", label: "Салхины даралтын эрчим", short: "Даралт" },
+    { layerId: 21, field: "h03b", label: "Салхины хурд (1 жил)", short: "Хурд · 1 жил" },
+    { layerId: 20, field: "h03c", label: "Салхины хурд (5 жил)", short: "Хурд · 5 жил" },
+    { layerId: 19, field: "h03d", label: "Салхины хурд (10 жил)", short: "Хурд · 10 жил" },
+    { layerId: 18, field: "h03e", label: "Салхины хурд (20 жил)", short: "Хурд · 20 жил" },
+  ],
+  ss: [
+    { layerId: 26, field: "h04a", label: "Цасан шуурганы бүс", short: "Эмзэг бүс" },
+    { layerId: 16, field: "h04b", label: "Цасны ачааллын эрчим", short: "Цасны ачаалал" },
+  ],
+  dr: [{ layerId: 15, field: "h05", label: "Гангийн бүс", short: "Эмзэг бүс" }],
+  dz: [
+    { layerId: 28, field: "h06b", label: "Зудын нэгдсэн бүс", short: "Нэгдсэн" },
+    { layerId: 28, field: "h06a", label: "Цагаан зудын бүс", short: "Цагаан зуд" },
+    { layerId: 28, field: "h06d", label: "Хар зудын бүс", short: "Хар зуд" },
+  ],
+  fl: [
+    { layerId: 31, field: "h07d", label: "Үерийн нэгдсэн бүс", short: "Нэгдсэн" },
+    { layerId: 30, field: "h07b", label: "Борооны үерийн бүс", short: "Бороо" },
+    { layerId: 10, field: "h07c", label: "Цасны үерийн бүс", short: "Цас" },
+    { layerId: 12, field: "h07a", label: "Гэнэтийн үерийн бүс", short: "Гэнэтийн" },
+  ],
+  wf: [
+    { layerId: 7, field: "h08c", label: "Түймрийн нэгдсэн бүс", short: "Нэгдсэн" },
+    { layerId: 9, field: "h08a", label: "Ойн түймрийн бүс", short: "Ой" },
+    { layerId: 8, field: "h08b", label: "Хээрийн түймрийн бүс", short: "Хээр" },
+  ],
+  zd: [
+    { layerId: 3, field: "h09d", label: "Зоонозын нэгдсэн бүс", short: "Нэгдсэн" },
+    { layerId: 5, field: "h09b", label: "Тарваган тахлын бүс", short: "Тахал" },
+    { layerId: 4, field: "h09c", label: "Галзуугийн бүс", short: "Галзуу" },
+  ],
+  lt: [
+    { layerId: 2, field: "h11a", label: "Аянгын бүс", short: "Эмзэг бүс" },
+    { layerId: 1, field: "h11b", label: "Аянгын эрчим", short: "Эрчим" },
+  ],
+};
+/** Unique id of a zoning variant (dzud variants share one layer). */
+export const zoneKey = (z: HazardZone) => `${z.layerId}:${z.field}`;
 
 export type Mode = "v" | "e";
 export const MODES: { id: Mode; label: string }[] = [

@@ -6,6 +6,7 @@ import {
   HAZARDS,
   HAZARD_SERVICE,
   hazardLabel,
+  zoneKey,
   type HazardZone,
 } from "@/lib/riskConfig";
 import { colorOf } from "@/lib/stats";
@@ -20,10 +21,11 @@ type Areas = Record<number, number>;
 type AimagAreas = { code: string; name: string; km2: number[] };
 
 /** km² per zoning class, summed on the server; one request per layer. */
-const cache = new Map<number, Promise<Areas>>();
+const cache = new Map<string, Promise<Areas>>();
 
 function loadAreas(zone: HazardZone): Promise<Areas> {
-  let p = cache.get(zone.layerId);
+  const key = zoneKey(zone);
+  let p = cache.get(key);
   if (!p) {
     const params = new URLSearchParams({
       where: "1=1",
@@ -48,8 +50,8 @@ function loadAreas(zone: HazardZone): Promise<Areas> {
         }
         return out;
       });
-    p.catch(() => cache.delete(zone.layerId));
-    cache.set(zone.layerId, p);
+    p.catch(() => cache.delete(key));
+    cache.set(key, p);
   }
   return p;
 }
@@ -129,15 +131,15 @@ export default function HazardStats({
   onOpenAimag,
 }: Props) {
   const [state, setState] = useState<{
-    id: number;
+    id: string;
     areas: Areas | null;
   } | null>(null);
 
   useEffect(() => {
     let live = true;
     loadAreas(zone).then(
-      (areas) => live && setState({ id: zone.layerId, areas }),
-      () => live && setState({ id: zone.layerId, areas: null }),
+      (areas) => live && setState({ id: zoneKey(zone), areas }),
+      () => live && setState({ id: zoneKey(zone), areas: null }),
     );
     return () => {
       live = false;
@@ -146,7 +148,7 @@ export default function HazardStats({
 
   // Precomputed by scripts/hazard_aimag_areas.py (zoning clipped by aimag).
   const aimagRows = (
-    (aimagAreas.hazards as Record<string, AimagAreas[]>)[hazard] ?? []
+    (aimagAreas.zones as Record<string, AimagAreas[]>)[zoneKey(zone)] ?? []
   )
     .map((r) => {
       const sum = r.km2.reduce((s, v) => s + v, 0);
@@ -156,7 +158,7 @@ export default function HazardStats({
     .filter((r) => r.sum > 0)
     .sort((a, b) => b.high - a.high);
 
-  const ready = state?.id === zone.layerId;
+  const ready = state?.id === zoneKey(zone);
   const areas = ready ? state.areas : null;
   const values = CLASSES.map((c) => areas?.[c] ?? 0);
   const total = values.reduce((s, v) => s + v, 0);
@@ -179,7 +181,7 @@ export default function HazardStats({
           <Icon name={hazardIcon} size={19} />
         </span>
         <div className={styles.heading}>
-          <p className={styles.eyebrow}>Аюулын бүсчлэл</p>
+          <p className={styles.eyebrow}>Аюулын бүсчлэл · {zone.short}</p>
           <h2>{hazardLabel(hazard)}</h2>
         </div>
         <span className={styles.scope}>

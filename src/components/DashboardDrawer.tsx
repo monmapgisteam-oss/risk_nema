@@ -39,7 +39,8 @@ type Props = {
   onSelectAimag: (code: string) => void;
 };
 
-const LEVELS = [0, 1, 2, 3, 4, 5];
+// "No exposure" (0) sits after the 1–5 scale, as the last column.
+const LEVELS = [1, 2, 3, 4, 5, 0];
 /** Exposure elements that have an object layer on the map. */
 const layerIds = new Set(OVERLAYS.e.map((o) => o.id));
 
@@ -536,12 +537,19 @@ export default function DashboardDrawer({
           </div>
         </section>
 
-        <div className={styles.twoCol}>
-          <section className={styles.card}>
+        <details className={`${styles.card} ${styles.foldCard}`}>
+          <summary>
             <h3>
-              Аймгийн эрэмбэ
-              <span>Топ {topAimags.length}</span>
+              <span className={styles.foldTitle}>
+                <Icon name="chevron" size={13} />
+                Аймаг, сумын эрэмбэ
+              </span>
+              <span>Топ 10</span>
             </h3>
+          </summary>
+          <div className={styles.twoCol}>
+          <section className={styles.rankCol}>
+            <h4>Аймаг</h4>
             <ol className={styles.rankList}>
               {topAimags.map((a, i) => (
                 <li key={a.code}>
@@ -570,11 +578,8 @@ export default function DashboardDrawer({
             </ol>
           </section>
 
-          <section className={styles.card}>
-            <h3>
-              Сумын эрэмбэ
-              <span>Топ {topSoums.length}</span>
-            </h3>
+          <section className={styles.rankCol}>
+            <h4>Сум</h4>
             <ol className={styles.rankList}>
               {topSoums.map((r, i) => (
                 <li key={r.fid}>
@@ -604,7 +609,8 @@ export default function DashboardDrawer({
               ))}
             </ol>
           </section>
-        </div>
+          </div>
+        </details>
       </div>
     </aside>
   );

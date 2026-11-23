@@ -2,15 +2,18 @@
 
 import {
   HAZARDS,
+  HAZARD_VARIANTS,
   MODES,
   panelOverlays,
   overlayLabel,
   type Filters,
   type Overlay,
 } from "@/lib/riskConfig";
+import { Fragment } from "react";
 import styles from "./Dashboard.module.css";
 import Icon, { type IconName } from "./Icon";
 import ClassChips from "./ClassChips";
+import HazardVariantPicker from "./HazardVariantPicker";
 
 const OVERLAY_ICONS: Record<string, IconName> = {
   edu: "school",
@@ -48,6 +51,9 @@ type Props = {
   setOverlays: (els: string[]) => void;
   hazardView: boolean;
   setHazardView: (on: boolean) => void;
+  /** Chosen zoning variant per hazard, and its setter. */
+  variantOf: Record<string, number>;
+  setVariant: (hazard: string, index: number) => void;
   soumOutlines: boolean;
   setSoumOutlines: (on: boolean) => void;
   aimagOutlines: boolean;
@@ -82,6 +88,8 @@ export default function FilterPanel({
   setOverlays,
   hazardView,
   setHazardView,
+  variantOf,
+  setVariant,
   soumOutlines,
   setSoumOutlines,
   aimagOutlines,
@@ -133,21 +141,35 @@ export default function FilterPanel({
           <div
             className={`${styles.hazardGrid} ${hazardView ? styles.hazardList : ""}`}
           >
-            {PANEL_HAZARDS.filter((h) => !hazardView || h.id !== "all").map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                className={styles.hazardChip}
-                aria-pressed={filters.hazard === h.id}
-                onClick={() => update({ hazard: h.id })}
-              >
-                <Icon name={h.id} size={16} />
-                {h.id === "all" ? "Бүх аюулт үзэгдэл" : h.label}
-                {filters.hazard === h.id && (
-                  <span className={styles.selectedDot} />
-                )}
-              </button>
-            ))}
+            {PANEL_HAZARDS.filter((h) => !hazardView || h.id !== "all").map((h) => {
+              const variants = HAZARD_VARIANTS[h.id] ?? [];
+              const active = filters.hazard === h.id;
+              return (
+                <Fragment key={h.id}>
+                  <button
+                    type="button"
+                    className={styles.hazardChip}
+                    aria-pressed={active}
+                    data-expanded={
+                      (hazardView && active && variants.length > 1) || undefined
+                    }
+                    onClick={() => update({ hazard: h.id })}
+                  >
+                    <Icon name={h.id} size={16} />
+                    {h.id === "all" ? "Бүх аюулт үзэгдэл" : h.label}
+                    {active && <span className={styles.selectedDot} />}
+                  </button>
+                  {hazardView && active && variants.length > 1 && (
+                    <HazardVariantPicker
+                      hazard={h.id}
+                      variants={variants}
+                      selectedIndex={variantOf[h.id] ?? 0}
+                      onSelect={(index) => setVariant(h.id, index)}
+                    />
+                  )}
+                </Fragment>
+              );
+            })}
           </div>
         </div>
 

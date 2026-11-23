@@ -9,6 +9,7 @@ hazard layer or the soum layer changes:
 """
 
 import json
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -25,19 +26,14 @@ BASE = "https://arcgis.ubhub.mn/arcgis/rest/services/Hosted"
 SOUM_URL = f"{BASE}/NEMA_VulExp_bySoum_Full/FeatureServer/0"
 HAZARD_URL = f"{BASE}/Hazard/FeatureServer"
 
-# Keep in sync with HAZARD_ZONES in src/lib/riskConfig.ts.
-HAZARD_ZONES = {
-    "eq": (23, "h01a"),
-    "ds": (24, "h02"),
-    "ws": (25, "h03a"),
-    "ss": (26, "h04a"),
-    "dr": (15, "h05"),
-    "dz": (28, "h06b"),
-    "fl": (31, "h07d"),
-    "wf": (7, "h08c"),
-    "zd": (3, "h09d"),
-    "lt": (2, "h11a"),
-}
+# Zoning variants ("layerId:field"), read from HAZARD_VARIANTS so the two
+# never drift apart.
+CONFIG = Path(__file__).resolve().parent.parent / "src" / "lib" / "riskConfig.ts"
+ZONES = list(
+    dict.fromkeys(
+        re.findall(r'layerId:\s*(\d+),\s*field:\s*"(\w+)"', CONFIG.read_text(encoding="utf-8"))
+    )
+)
 
 # Albers equal-area fitted to Mongolia, so planar area is true area.
 TO_AEA = Transformer.from_crs(
@@ -90,7 +86,7 @@ def main():
     print(f"{len(aimags)} aimags", file=sys.stderr)
 
     result = {}
-    for hz, (layer, field) in HAZARD_ZONES.items():
+    for layer, field in ZONES:
         feats = [
             (int(f["properties"][field]), area_shape(f["geometry"]))
             for f in features(f"{HAZARD_URL}/{layer}", [field])
@@ -105,23 +101,22 @@ def main():
                 km2[cls - 1] += aimag.intersection(g).area / 1e6
             rows.append({"code": code, "name": name, "km2": [round(v, 1) for v in km2]})
         total = sum(sum(r["km2"]) for r in rows)
-        print(f"{hz}: {len(feats)} polygons, {total:,.0f} km2", file=sys.stderr)
-        result[hz] = rows
+        key = f"{layer}:{field}"
+        print(f"{key}: {len(feats)} polygons, {total:,.0f} km2", file=sys.stderr)
+        result[key] = rows
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     # One aimag per line: small, and diffs stay readable.
-    lines = [f'{{"generated": "{date.today().isoformat()}", "hazards": {{']
-    for n, (hz, rows) in enumerate(result.items()):
-        lines.append(f' "{hz}": [')
+    lines = [f'{{"generated": "{date.today().isoformat()}", "zones": {{']
+    for n, (key, rows) in enumerate(result.items()):
+        lines.append(f' "{key}": [')
         lines += [
             "  " + json.dumps(r, ensure_ascii=False) + ("," if i < len(rows) - 1 else "")
             for i, r in enumerate(rows)
         ]
         lines.append(" ]" + ("," if n < len(result) - 1 else ""))
     lines.append("}}")
-    OUT.write_text("
-".join(lines) + "
-", encoding="utf-8")
+    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {OUT}", file=sys.stderr)
 
 

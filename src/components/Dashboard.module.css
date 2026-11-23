@@ -1191,7 +1191,43 @@
 }
 
 .segmented.segmented3 {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+}
+/* View picker styled like the zoning variant options (cards, no dot). */
+.segmented.segmented3 button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 7px;
+  border: 1px solid #dfe7ef;
+  border-radius: 5px;
+  background: #fff;
+  color: #486077;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.segmented.segmented3 button:hover {
+  border-color: #aabfd2;
+  background: #f0f5fa;
+}
+.segmented.segmented3 button[aria-pressed="true"] {
+  border-color: #315b7d;
+  background: #e8f0f7;
+  color: #204d70;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 0.5px #315b7d;
 }
 
 /* Hazard view: one hazard per row. */
@@ -1298,4 +1334,10 @@
 }
 .rankBody[hidden] {
   display: none;
+}
+
+/* Join the selected hazard to its nested variant choices. */
+.hazardList .hazardChip[data-expanded="true"] {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
 }

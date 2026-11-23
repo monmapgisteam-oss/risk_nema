@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   CLASS_LABELS,
   DEFAULT_FILTERS,
-  HAZARD_ZONES,
+  HAZARD_VARIANTS,
   ELEMENTS,
   OVERLAYS,
   OVERLAY_SERVICE,
@@ -74,6 +74,12 @@ export default function Dashboard() {
   const [hazardView, setHazardView] = useState(true);
   /** Aimag opened in the hazard panel: zoomed to and outlined on the map. */
   const [hazardAimag, setHazardAimag] = useState<string | null>(null);
+  /** Chosen zoning variant per hazard (index into HAZARD_VARIANTS). */
+  const [variantOf, setVariantOf] = useState<Record<string, number>>({});
+  const variants = HAZARD_VARIANTS[filters.hazard] ?? [];
+  const hazardZone = hazardView
+    ? (variants[variantOf[filters.hazard] ?? 0] ?? variants[0] ?? null)
+    : null;
   // Soum outlines over the hazard zoning; off by default.
   const [soumOutlines, setSoumOutlines] = useState(false);
   // Aimag borders in the hazard view; off by default.
@@ -388,11 +394,17 @@ export default function Dashboard() {
               : MODES.find((m) => m.id === filters.mode)?.label}
           </span>
           <Icon name="chevron" size={13} />
-          <span aria-current="page">
+          <span aria-current={hazardZone && variants.length > 1 ? undefined : "page"}>
             {filters.hazard === "all"
               ? "Нэгдсэн үнэлгээ"
               : hazardLabel(filters.hazard)}
           </span>
+          {hazardZone && variants.length > 1 && (
+            <>
+              <Icon name="chevron" size={13} />
+              <span aria-current="page">{hazardZone.short}</span>
+            </>
+          )}
         </nav>
       </div>
       <div className={styles.toolbarActions}>
@@ -530,6 +542,10 @@ export default function Dashboard() {
           overlays={overlays}
           setOverlays={setOverlays}
           hazardView={hazardView}
+          variantOf={variantOf}
+          setVariant={(hazard, i) =>
+            setVariantOf((v) => ({ ...v, [hazard]: i }))
+          }
           soumOutlines={soumOutlines}
           setSoumOutlines={setSoumOutlines}
           aimagOutlines={aimagOutlines}
@@ -568,9 +584,7 @@ export default function Dashboard() {
               onPick={pick}
               focus={focus}
               onFocusMatched={() => focusOn(matchedIds)}
-              hazardZone={
-                hazardView ? (HAZARD_ZONES[filters.hazard] ?? null) : null
-              }
+              hazardZone={hazardZone}
               showSoums={!hazardView || soumOutlines}
               // Hazard view: the panel toggle. V/E: shown once an aimag or
               // soums are chosen.
@@ -602,9 +616,9 @@ export default function Dashboard() {
           pickedVul={pickedVul}
           onClosePicked={clearPicked}
         >
-          {hazardView && HAZARD_ZONES[filters.hazard] ? (
+          {hazardZone ? (
             <HazardStats
-              zone={HAZARD_ZONES[filters.hazard]}
+              zone={hazardZone}
               hazard={filters.hazard}
               openAimag={hazardAimag}
               onOpenAimag={(code) => {

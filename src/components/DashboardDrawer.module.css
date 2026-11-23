@@ -702,3 +702,50 @@ button.expName:hover {
 .card:has(> .hbars) > h3 {
   margin-bottom: 6px;
 }
+
+/* Ranking cards fold open and shut from their heading. */
+.foldCard > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.foldCard > summary::-webkit-details-marker {
+  display: none;
+}
+.foldCard:not([open]) h3 {
+  margin-bottom: 0;
+}
+.card h3 > .foldTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+}
+.foldTitle > svg {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.foldCard[open] .foldTitle > svg {
+  transform: rotate(90deg);
+}
+/* A folded card keeps its own height next to an open one. */
+.twoCol:has(> .foldCard) {
+  align-items: start;
+}
+/* Aimag and soum rankings side by side inside one card. */
+.rankCol {
+  min-width: 0;
+}
+.rankCol > h4 {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
