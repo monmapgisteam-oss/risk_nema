@@ -92,6 +92,8 @@ type Props = {
   padRight?: number;
   /** Aimag code whose border is drawn bold (chosen in the hazard panel). */
   outlineAimag?: string | null;
+  /** Zoning classes to show; empty shows all. */
+  zoneClasses?: number[];
 };
 
 /** "#rrggbb" → [r, g, b, alpha]. */
@@ -186,6 +188,8 @@ type OverlayEntry = {
 
 const added = (e: OverlayEntry) => e.container ?? e.layer;
 
+const NO_CLASSES: number[] = [];
+
 export default function RiskMap({
   mode,
   hazard,
@@ -207,6 +211,7 @@ export default function RiskMap({
   showAimags,
   padRight = 0,
   outlineAimag = null,
+  zoneClasses = NO_CLASSES,
 }: Props) {
   const mapRef = useRef<HTMLArcgisMapElement | null>(null);
   const homeRef = useRef<HTMLArcgisHomeElement | null>(null);
@@ -552,6 +557,7 @@ export default function RiskMap({
   }, [borders, showAimags, hazardZone]);
 
   // Hazard zoning: one polygon layer per hazard, colored by its 1–5 class.
+  const zoneLayerRef = useRef<FeatureLayer | null>(null);
   useEffect(() => {
     if (!view?.map || !hazardZone) return;
     const map = view.map;
@@ -579,11 +585,24 @@ export default function RiskMap({
       }),
     });
     map.add(layer, 0);
+    zoneLayerRef.current = layer;
     return () => {
+      if (zoneLayerRef.current === layer) zoneLayerRef.current = null;
       map.remove(layer);
       layer.destroy();
     };
   }, [view, hazardZone]);
+
+  // Class filter from the hazard panel: only the chosen classes are drawn.
+  const classKey = zoneClasses.join(",");
+  useEffect(() => {
+    const layer = zoneLayerRef.current;
+    if (!layer || !hazardZone) return;
+    layer.set(
+      "definitionExpression",
+      classKey ? `${hazardZone.field} IN (${classKey})` : "",
+    );
+  }, [view, hazardZone, classKey]);
 
   // Hazard maps read best on a grey shaded-relief base; restore the
   // previous basemap when leaving the hazard view.

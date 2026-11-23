@@ -63,8 +63,18 @@ const km2 = (n: number) =>
 
 const pct = (n: number) => (n >= 10 || n === 0 ? n.toFixed(1) : n.toFixed(2));
 
-/** Area and share per class: one row per zoning class. */
-function ClassTable({ values, share }: { values: number[]; share: number[] }) {
+/** Area and share per class: one row per zoning class; rows toggle the class filter. */
+function ClassTable({
+  values,
+  share,
+  selected,
+  onToggle,
+}: {
+  values: number[];
+  share: number[];
+  selected: number[];
+  onToggle: (cls: number) => void;
+}) {
   return (
     <table
       className={styles.table}
@@ -84,15 +94,30 @@ function ClassTable({ values, share }: { values: number[]; share: number[] }) {
       </thead>
       <tbody>
         {CLASSES.map((c, i) => (
-          <tr key={c}>
+          <tr
+            key={c}
+            className={styles.classRow}
+            data-on={selected.includes(c) || undefined}
+            data-off={(selected.length > 0 && !selected.includes(c)) || undefined}
+            onClick={() => onToggle(c)}
+          >
             <th scope="row">
-              <span className={styles.classLabel}>
+              <button
+                type="button"
+                className={styles.classLabel}
+                aria-pressed={selected.includes(c)}
+                title={`${CLASS_LABELS[c]}: газрын зураг, аймгуудыг шүүх`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle(c);
+                }}
+              >
                 <i
                   style={{ background: colorOf(c) }}
                   aria-hidden="true"
                 />
                 {CLASS_LABELS[c]}
-              </span>
+              </button>
               <span className={styles.track} aria-hidden="true">
                 <i
                   style={{
@@ -122,6 +147,9 @@ type Props = {
   openAimag: string | null;
   /** Opens an aimag (zooming the map to it), or closes it with null. */
   onOpenAimag: (code: string | null) => void;
+  /** Class filter (map and aimag list); empty means all classes. */
+  classes: number[];
+  onToggleClass: (cls: number) => void;
 };
 
 export default function HazardStats({
@@ -129,6 +157,8 @@ export default function HazardStats({
   hazard,
   openAimag,
   onOpenAimag,
+  classes,
+  onToggleClass,
 }: Props) {
   const [state, setState] = useState<{
     id: string;
@@ -153,10 +183,14 @@ export default function HazardStats({
     .map((r) => {
       const sum = r.km2.reduce((s, v) => s + v, 0);
       const shares = r.km2.map((v) => (sum ? (v / sum) * 100 : 0));
-      return { ...r, sum, shares, high: shares[3] + shares[4] };
+      // Sort key: share of the filtered classes, else high + very high.
+      const key = classes.length
+        ? classes.reduce((s, c) => s + shares[c - 1], 0)
+        : shares[3] + shares[4];
+      return { ...r, sum, shares, key };
     })
-    .filter((r) => r.sum > 0)
-    .sort((a, b) => b.high - a.high);
+    .filter((r) => r.sum > 0 && (!classes.length || r.key > 0))
+    .sort((a, b) => b.key - a.key);
 
   const ready = state?.id === zoneKey(zone);
   const areas = ready ? state.areas : null;
@@ -240,7 +274,12 @@ export default function HazardStats({
                   Бүртгэгдсэн талбай байхгүй байна.
                 </p>
               )}
-              <ClassTable values={values} share={share} />
+              <ClassTable
+                values={values}
+                share={share}
+                selected={classes}
+                onToggle={onToggleClass}
+              />
             </>
           )}
         </details>
@@ -277,6 +316,10 @@ export default function HazardStats({
                           r.shares[i] > 0 ? (
                             <i
                               key={c}
+                              data-off={
+                                (classes.length > 0 && !classes.includes(c)) ||
+                                undefined
+                              }
                               style={{
                                 flexGrow: r.shares[i],
                                 background: colorOf(c),
@@ -288,7 +331,12 @@ export default function HazardStats({
                     </button>
                     {open && (
                       <div className={styles.aimagDetail}>
-                        <ClassTable values={r.km2} share={r.shares} />
+                        <ClassTable
+                          values={r.km2}
+                          share={r.shares}
+                          selected={classes}
+                          onToggle={onToggleClass}
+                        />
                       </div>
                     )}
                   </div>

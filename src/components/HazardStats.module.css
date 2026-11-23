@@ -384,3 +384,39 @@
     padding: 12px;
   }
 }
+
+/* Class filter: rows toggle; chosen rows tint, the rest fade. */
+.classRow {
+  cursor: pointer;
+}
+
+.classRow:hover > * {
+  background: #f6f9fc;
+}
+
+.classRow[data-on="true"] > * {
+  background: #eef3f8;
+}
+
+.classRow[data-off="true"] {
+  opacity: 0.4;
+}
+
+button.classLabel {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.classLabel[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.stack > i[data-off="true"] {
+  opacity: 0.18;
+}

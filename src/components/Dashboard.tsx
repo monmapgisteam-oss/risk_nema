@@ -74,6 +74,8 @@ export default function Dashboard() {
   const [hazardView, setHazardView] = useState(true);
   /** Aimag opened in the hazard panel: zoomed to and outlined on the map. */
   const [hazardAimag, setHazardAimag] = useState<string | null>(null);
+  /** Zoning classes picked in the hazard panel (map + aimag list filter). */
+  const [zoneClasses, setZoneClasses] = useState<number[]>([]);
   /** Chosen zoning variant per hazard (index into HAZARD_VARIANTS). */
   const [variantOf, setVariantOf] = useState<Record<string, number>>({});
   const variants = HAZARD_VARIANTS[filters.hazard] ?? [];
@@ -322,6 +324,10 @@ export default function Dashboard() {
     setOverlayIds([]);
     clearPicked();
     setSelectedFid(null);
+    // Hazard panel choices: class filter, opened aimag, zoning variants.
+    setZoneClasses([]);
+    setHazardAimag(null);
+    setVariantOf({});
     focusOn(null);
   };
 
@@ -595,6 +601,7 @@ export default function Dashboard() {
               }
               areaFocus={!!filters.aimag || filters.soums.length > 0}
               outlineAimag={hazardView ? hazardAimag : null}
+              zoneClasses={zoneClasses}
             />
           </div>
         </div>
@@ -621,6 +628,14 @@ export default function Dashboard() {
               zone={hazardZone}
               hazard={filters.hazard}
               openAimag={hazardAimag}
+              classes={zoneClasses}
+              onToggleClass={(c) =>
+                setZoneClasses((cur) =>
+                  cur.includes(c)
+                    ? cur.filter((x) => x !== c)
+                    : [...cur, c].sort(),
+                )
+              }
               onOpenAimag={(code) => {
                 setHazardAimag(code);
                 focusOn(
