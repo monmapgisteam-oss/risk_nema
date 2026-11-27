@@ -13,6 +13,9 @@ import {
   type SoumRow,
 } from "@/lib/riskConfig";
 import { colorOf, fmt, mean, rankField, type AimagRank } from "@/lib/stats";
+import ObjectClassCard from "./ObjectClassCard";
+import type { ObjectDistributionState } from "./useObjectDistribution";
+import type { ObjectBucket } from "@/lib/objectClass";
 import Icon from "./Icon";
 import styles from "./DashboardDrawer.module.css";
 
@@ -25,13 +28,20 @@ type Props = {
   update: (patch: Partial<Filters>) => void;
   total: number;
   matched: SoumRow[];
+  /** Soums passing every filter except the class one (class distribution). */
+  classBase?: SoumRow[];
   scopeLabel: string;
   aimagRanks: AimagRank[];
   /** Elements per "mode:hazard", from elementCombos(). */
   combos: Record<string, string[]>;
   /** Object layers currently on the map. */
   overlays: string[];
-  /** Show an exposure element (and optionally its classes) on the map. */
+  /** Class counts of the object layers on the map. */
+  objectDist?: ObjectDistributionState;
+  /** Object class buckets that filter the map. */
+  objectClasses?: ObjectBucket[];
+  onToggleObjectClass?: (bucket: ObjectBucket) => void;
+  /** Show an element of the current indicator (and optionally its classes) on the map. */
   onShowElement: (el: string, classes?: number[]) => void;
   /** Reports how many px of the map the open drawer covers. */
   onCover?: (px: number) => void;
@@ -42,7 +52,10 @@ type Props = {
 // "No exposure" (0) sits after the 1–5 scale, as the last column.
 const LEVELS = [1, 2, 3, 4, 5, 0];
 /** Exposure elements that have an object layer on the map. */
-const layerIds = new Set(OVERLAYS.e.map((o) => o.id));
+const layerIds = {
+  v: new Set(OVERLAYS.v.map((o) => o.id)),
+  e: new Set(OVERLAYS.e.map((o) => o.id)),
+};
 
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
@@ -55,10 +68,14 @@ export default function DashboardDrawer({
   update,
   total,
   matched,
+  classBase = matched,
   scopeLabel,
   aimagRanks,
   combos,
   overlays,
+  objectDist,
+  objectClasses = [],
+  onToggleObjectClass,
   onShowElement,
   onCover,
   onSelectSoum,
@@ -107,9 +124,11 @@ export default function DashboardDrawer({
   const classes = filters.element ? [0, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5];
 
   const stats = useMemo(() => {
+    // The distribution ignores the class filter itself, so every class keeps
+    // its real count and the chosen ones are only highlighted.
     const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     let classified = 0;
-    for (const r of matched) {
+    for (const r of classBase) {
       const v = r[cf];
       if (typeof v === "number" && v in counts) {
         counts[v]++;
@@ -126,10 +145,13 @@ export default function DashboardDrawer({
       counts,
       classified,
       avg: mean(matched, sf),
-      high: counts[4] + counts[5],
+      high: matched.filter((r) => r[cf] === 4 || r[cf] === 5).length,
+      matchedClassified: matched.filter(
+        (r) => typeof r[cf] === "number" && (r[cf] as number) <= 5,
+      ).length,
       lead: lead ? { id: lead[0], n: lead[1] } : null,
     };
-  }, [matched, cf, sf, mode]);
+  }, [matched, classBase, cf, sf, mode]);
 
   // Mean score of every hazard for the current indicator.
   const byHazard = useMemo(
@@ -159,8 +181,9 @@ export default function DashboardDrawer({
     return { m, max };
   }, [matched, filters.hazard, mode, other]);
 
-  // Exposure elements: soums per class level (0–5). With "all" hazards each
-  // soum counts at its highest level of that element over every hazard.
+  // Elements of the current indicator (vulnerability or exposure): soums per
+  // class level. With "all" hazards each soum counts at its highest level of
+  // that element over every hazard.
   const exposure = useMemo(() => {
     const hz = filters.hazard;
     const hazards =
@@ -168,7 +191,7 @@ export default function DashboardDrawer({
         ? HAZARDS.filter((h) => h.id !== "all").map((h) => h.id as string)
         : [hz as string];
     const els = new Set<string>();
-    for (const h of hazards) for (const el of combos[`e:${h}`] ?? []) els.add(el);
+    for (const h of hazards) for (const el of combos[`${mode}:${h}`] ?? []) els.add(el);
     return [...els]
       .map((el) => {
         const counts = [0, 0, 0, 0, 0, 0];
@@ -176,7 +199,7 @@ export default function DashboardDrawer({
         for (const r of matched) {
           let best: number | null = null;
           for (const h of hazards) {
-            const v = r[`${h}_${el}_e`];
+            const v = r[`${h}_${el}_${mode}`];
             if (typeof v === "number" && v >= 0 && v <= 5 && (best == null || v > best))
               best = v;
           }
@@ -189,7 +212,9 @@ export default function DashboardDrawer({
       })
       .filter((e) => e.n > 0)
       .sort((a, b) => b.high / b.n - a.high / a.n || b.n - a.n);
-  }, [matched, combos, filters.hazard]);
+  }, [matched, combos, filters.hazard, mode]);
+  // Vulnerability has no "no exposure" (0) level.
+  const levels = mode === "e" ? LEVELS : LEVELS.filter((c) => c !== 0);
   // Elements can only be filtered by within a single hazard.
   const exposureClickable = filters.hazard !== "all";
 
@@ -271,7 +296,7 @@ export default function DashboardDrawer({
           <div className={styles.kpi}>
             <span>Өндөр ба маш өндөр</span>
             <strong>{stats.high}</strong>
-            <small>{pct(stats.high, stats.classified)}% сум</small>
+            <small>{pct(stats.high, stats.matchedClassified)}% сум</small>
           </div>
           <div className={styles.kpi}>
             <span>Гол аюул</span>
@@ -288,7 +313,7 @@ export default function DashboardDrawer({
           <summary>
             <span className={styles.distTitle}>
               <Icon name="chevron" size={13} />
-              Ангиллын тархалт
+              Сумын ангиллын тархалт
             </span>
             <span>Сумын тоо</span>
           </summary>
@@ -300,6 +325,10 @@ export default function DashboardDrawer({
                 type="button"
                 className={styles.distRow}
                 aria-pressed={filters.classes.includes(c)}
+                data-off={
+                  (filters.classes.length > 0 && !filters.classes.includes(c)) ||
+                  undefined
+                }
                 title={`${CLASS_LABELS[c]}: ${stats.counts[c]} сум (${pct(stats.counts[c], stats.classified)}%)`}
                 onClick={() =>
                   update({
@@ -323,6 +352,14 @@ export default function DashboardDrawer({
             ));
           })()}
         </details>
+
+        {objectDist && onToggleObjectClass && (
+          <ObjectClassCard
+            dist={objectDist}
+            selected={objectClasses}
+            onToggle={onToggleObjectClass}
+          />
+        )}
 
         <section className={styles.card}>
           <h3>
@@ -351,7 +388,7 @@ export default function DashboardDrawer({
 
         <section className={styles.card}>
           <h3>
-            Өртөх байдал · элементээр
+            {modeLabel} · элементээр
             <span>
               {filters.hazard === "all"
                 ? "Бүх аюулын дээд түвшин"
@@ -365,7 +402,7 @@ export default function DashboardDrawer({
                 <thead>
                   <tr>
                     <th scope="col">Элемент</th>
-                    {LEVELS.map((c) => (
+                    {levels.map((c) => (
                       <th key={c} scope="col" title={CLASS_LABELS[c]}>
                         <i style={{ background: colorOf(c) }} />
                         {CLASS_LABELS[c]}
@@ -375,11 +412,10 @@ export default function DashboardDrawer({
                 </thead>
                 <tbody>
                   {exposure.map((e) => {
-                    const hasLayer = layerIds.has(e.el);
+                    const hasLayer = layerIds[mode].has(e.el);
                     const current =
-                      filters.mode === "e" &&
-                      (filters.element === e.el ||
-                        (hasLayer && overlays.includes(e.el)));
+                      filters.element === e.el ||
+                      (hasLayer && overlays.includes(e.el));
                     return (
                       <tr key={e.el} aria-current={current || undefined}>
                         <th scope="row">
@@ -410,7 +446,7 @@ export default function DashboardDrawer({
                             </span>
                           )}
                           <span className={styles.expBar} aria-hidden="true">
-                            {LEVELS.map((c) =>
+                            {levels.map((c) =>
                               e.counts[c] ? (
                                 <i
                                   key={c}
@@ -423,11 +459,10 @@ export default function DashboardDrawer({
                             )}
                           </span>
                         </th>
-                        {LEVELS.map((c) => {
+                        {levels.map((c) => {
                           const n = e.counts[c];
                           const label = `${ELEMENTS[e.el]} · ${CLASS_LABELS[c]}: ${n} сум (${pct(n, e.n)}%)`;
                           const active =
-                            filters.mode === "e" &&
                             filters.element === e.el &&
                             filters.classes.includes(c);
                           return (

@@ -221,39 +221,7 @@ export function overlayLegendSvg(o: Overlay): string {
   );
 }
 
-/**
- * Fields that hold a feature's own class for the hazard, best first:
- * per-object CVI (points/lines) or the element's own class (polygons:
- * `_vl45`, `_el345`), then the soum element class, then
- * the soum's class for the hazard (exposure layers carry only that).
- * For "all" the multi-hazard object class comes first.
- */
-export function objectClassFields(
-  o: Overlay,
-  hazard: string,
-  available: string[],
-): string[] {
-  const wanted =
-    hazard === "all"
-      ? [
-          "cvi_mhei",
-          "cvi",
-          "mh_expclas",
-          "mh_expcl",
-          "mh_vl45",
-          "mh_el345",
-          "all_soumcl",
-        ]
-      : [
-          `${hazard}_cvi`,
-          `cvi_${hazard}`,
-          `${hazard}_vl45`,
-          `${hazard}_el345`,
-          `${hazard}_${o.el}_el`,
-          `${hazard}_soumcl`,
-        ];
-  return wanted.filter((f) => available.includes(f));
-}
+export { objectClassFields } from "./objectClass";
 
 /** Arcade: first non-empty candidate field as a class 0–5 ("4. High" → 4). */
 function classExpression(fields: string[]) {

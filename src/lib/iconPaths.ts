@@ -31,6 +31,7 @@ export const ICON_PATHS = {
   pipe: "M3 5h12v10h6v6H9V11H3V5Zm0-2v10m18 0v10",
   road: "M7 3 3 21M17 3l4 18M12 3v3m0 4v4m0 4v3",
   home: "m3 11 9-8 9 8M5 9v12h14V9M10 21v-7h4v7",
+  user: "M20 21a8 8 0 0 0-16 0M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   users:
     "M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM6 21v-3a6 6 0 0 1 12 0v3M18 5a3 3 0 0 1 0 6M21 21v-3a5 5 0 0 0-3-4M6 5a3 3 0 0 0 0 6M3 21v-3a5 5 0 0 1 3-4",
   building:

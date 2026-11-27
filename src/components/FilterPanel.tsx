@@ -5,6 +5,7 @@ import {
   HAZARD_VARIANTS,
   MODES,
   panelOverlays,
+  overlayAssessed,
   overlayLabel,
   type Filters,
   type Overlay,
@@ -49,6 +50,8 @@ type Props = {
   update: (patch: Partial<Filters>) => void;
   overlays: string[];
   setOverlays: (els: string[]) => void;
+  /** Elements per "mode:hazard" (which hazards assess which layers). */
+  combos: Record<string, string[]>;
   hazardView: boolean;
   setHazardView: (on: boolean) => void;
   /** Chosen zoning variant per hazard, and its setter. */
@@ -86,6 +89,7 @@ export default function FilterPanel({
   update,
   overlays,
   setOverlays,
+  combos,
   hazardView,
   setHazardView,
   variantOf,
@@ -282,38 +286,54 @@ export default function FilterPanel({
                     role="group"
                     aria-label={label}
                   >
-                    {items.map((o) => (
-                      <button
-                        key={o.id}
-                        type="button"
-                        className={styles.hazardChip}
-                        aria-pressed={overlays.includes(o.id)}
-                        onClick={() =>
-                          setOverlays(
-                            geometry === "polygon"
-                              ? // Only one polygon layer at a time (they all
-                                // cover the same soums); points/lines stack.
-                                overlays.includes(o.id)
-                                ? overlays.filter((id) => id !== o.id)
-                                : [
-                                    ...overlays.filter(
-                                      (id) => !items.some((x) => x.id === id),
-                                    ),
-                                    o.id,
-                                  ]
-                              : toggle(overlays, o.id),
-                          )
-                        }
-                      >
-                        <Icon name={OVERLAY_ICONS[o.el] ?? "layers"} size={16} />
-                        <span className={styles.optionLabel}>
-                          {overlayLabel(o)}
-                        </span>
-                        {overlays.includes(o.id) && (
-                          <span className={styles.selectedDot} />
-                        )}
-                      </button>
-                    ))}
+                    {items.map((o) => {
+                      const assessed = overlayAssessed(
+                        o,
+                        filters.mode,
+                        filters.hazard,
+                        combos,
+                      );
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          className={styles.hazardChip}
+                          disabled={!assessed}
+                          title={
+                            assessed
+                              ? undefined
+                              : `${overlayLabel(o)}: ${
+                                  HAZARDS.find((h) => h.id === filters.hazard)?.label
+                                } аюулаар үнэлэгдээгүй`
+                          }
+                          aria-pressed={overlays.includes(o.id)}
+                          onClick={() =>
+                            setOverlays(
+                              geometry === "polygon"
+                                ? // Only one polygon layer at a time (they all
+                                  // cover the same soums); points/lines stack.
+                                  overlays.includes(o.id)
+                                  ? overlays.filter((id) => id !== o.id)
+                                  : [
+                                      ...overlays.filter(
+                                        (id) => !items.some((x) => x.id === id),
+                                      ),
+                                      o.id,
+                                    ]
+                                : toggle(overlays, o.id),
+                            )
+                          }
+                        >
+                          <Icon name={OVERLAY_ICONS[o.el] ?? "layers"} size={16} />
+                          <span className={styles.optionLabel}>
+                            {overlayLabel(o)}
+                          </span>
+                          {overlays.includes(o.id) && (
+                            <span className={styles.selectedDot} />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );

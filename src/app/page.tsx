@@ -1,6 +1,7 @@
 import styles from "./page.module.css";
 import MapSection from "@/components/MapSection";
 import Image from "next/image";
+import Icon from "@/components/Icon";
 
 export default function Home() {
   return (
@@ -23,6 +24,14 @@ export default function Home() {
         </div>
         <span className={styles.headerDivider} />
         <div id="header-slot" className={styles.headerSlot} />
+        {/* Sign-in is not wired up yet; the button only marks its place. */}
+        <button
+          type="button"
+          className={styles.login}
+        >
+          <Icon name="user" size={15} />
+          Нэвтрэх
+        </button>
       </header>
       <main className={styles.mapSection} aria-label="Вэб карт">
         <MapSection />

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  overlayAssessed,
+  overlayLabel,
   CLASS_LABELS,
   DEFAULT_FILTERS,
   HAZARD_VARIANTS,
@@ -29,6 +31,8 @@ import styles from "./Dashboard.module.css";
 import Icon from "./Icon";
 import ClassPicker from "./ClassPicker";
 import DisabledHint from "./DisabledHint";
+import { useObjectDistribution } from "./useObjectDistribution";
+import type { ObjectBucket } from "@/lib/objectClass";
 import DashboardDrawer from "./DashboardDrawer";
 import HazardStats from "./HazardStats";
 import { aimagRanking } from "@/lib/stats";
@@ -37,6 +41,8 @@ const ROWS_URL = `${SOUM_LAYER_URL}/query?where=1%3D1&outFields=*&returnGeometry
 
 /** The app opens on the hazard view, which needs a single hazard. */
 const START_FILTERS: Filters = { ...DEFAULT_FILTERS, hazard: "wf" };
+
+const NO_OVERLAYS: string[] = [];
 
 export default function Dashboard() {
   // Rendered client-only (ssr:false), so the header slot already exists.
@@ -127,6 +133,10 @@ export default function Dashboard() {
   }, [rows]);
 
   const matched = useMemo(() => applyFilters(rows, filters), [rows, filters]);
+  const classBase = useMemo(
+    () => applyFilters(rows, { ...filters, classes: [] }),
+    [rows, filters],
+  );
   const matchedIds = useMemo(
     () =>
       rows.length && matched.length < rows.length
@@ -138,6 +148,27 @@ export default function Dashboard() {
     () => (matchedIds ? matched.map((r) => Number(r.code)) : null),
     [matched, matchedIds],
   );
+  const areaFocus = !!filters.aimag || filters.soums.length > 0;
+
+  // Object layers on the map: class counts and the class filter of the card.
+  const objectDist = useObjectDistribution({
+    mode: filters.mode,
+    hazard: filters.hazard,
+    overlays: hazardView ? NO_OVERLAYS : overlays,
+    codes: matchedCodes,
+    areaFocus,
+  });
+  const [objectClasses, setObjectClasses] = useState<ObjectBucket[]>([]);
+  const objectFilter = useMemo(() => {
+    if (!objectClasses.length || !objectDist.data) return null;
+    const out: Record<string, { oid: string; ids: number[] }> = {};
+    for (const [id, d] of Object.entries(objectDist.data))
+      out[id] = {
+        oid: d.oid,
+        ids: objectClasses.flatMap((b) => d.ids[b] ?? []),
+      };
+    return out;
+  }, [objectClasses, objectDist.data]);
   const soumOptions = useMemo(
     () =>
       rows
@@ -224,10 +255,17 @@ export default function Dashboard() {
         next.classes = patch.classes ?? [];
       return next;
     });
-    if (patch.mode) {
-      const ids = OVERLAYS[patch.mode].map((o) => o.id);
+    if (patch.mode) setObjectClasses([]);
+    if (patch.mode || patch.hazard) {
+      // Keep only object layers of the indicator that the hazard assesses.
+      const mode = patch.mode ?? filters.mode;
+      const hazard = patch.hazard ?? filters.hazard;
+      const ids = OVERLAYS[mode]
+        .filter((o) => overlayAssessed(o, mode, hazard, combos))
+        .map((o) => o.id);
       setOverlayIds((cur) => cur.filter((id) => ids.includes(id)));
-      if (picked && picked.mode !== patch.mode) clearPicked();
+      if (picked && (picked.mode !== mode || !ids.includes(picked.overlay.id)))
+        clearPicked();
     }
     // Choosing an element also draws its objects (coloured by risk) on the
     // map; clearing it removes the layer again if that was the only one.
@@ -285,24 +323,23 @@ export default function Dashboard() {
   };
 
   /**
-   * Dashboard → map: show an exposure element on the map. Turns on its object
-   * layer and, when a single hazard is chosen, colours soums by the element
+   * Dashboard → map: show an element of the current indicator on the map.
+   * Turns on its object layer and, when a single hazard is chosen, colours soums by the element
    * (optionally filtered to `classes`). Without `classes`, choosing the element
    * that is already shown turns it off again.
    */
   const showElementOnMap = (el: string, classes?: number[]) => {
-    const hasLayer = OVERLAYS.e.some((o) => o.id === el);
+    const mode = filters.mode;
+    const hasLayer = OVERLAYS[mode].some((o) => o.id === el);
     const canFilter = filters.hazard !== "all";
-    const shown =
-      filters.mode === "e" &&
-      (hasLayer ? overlays.includes(el) : filters.element === el);
+    const shown = hasLayer ? overlays.includes(el) : filters.element === el;
     if (classes === undefined && shown) {
       if (hasLayer) setOverlays(overlays.filter((id) => id !== el));
       if (filters.element === el) update({ element: "" });
       return;
     }
     update({
-      mode: "e",
+      mode,
       ...(canFilter ? { element: el, classes: classes ?? [] } : {}),
     });
     if (hasLayer) setOverlays([el]);
@@ -328,24 +365,30 @@ export default function Dashboard() {
     setZoneClasses([]);
     setHazardAimag(null);
     setVariantOf({});
+    setObjectClasses([]);
     focusOn(null);
   };
 
-  // What the result summary describes: the chosen area plus element/class.
-  const scopeLabel = useMemo(() => {
+  // Name of the chosen area ("" = the whole country).
+  const areaName = useMemo(() => {
     const names = filters.soums
       .map((fid) => rows.find((r) => r.fid === fid))
       .filter((r): r is SoumRow => !!r);
     const aimagName = aimags.find(([code]) => code === filters.aimag)?.[1];
-    let area = "";
     if (names.length === 1)
-      area = [`${names[0].soum_name} сум`, names[0].aimag_name]
+      return [`${names[0].soum_name} сум`, names[0].aimag_name]
         .filter(Boolean)
         .join(", ");
-    else if (names.length > 1 && names.length <= 3)
-      area = `${names.map((r) => r.soum_name).join(", ")} сум`;
-    else if (names.length > 3) area = `${names.length} сум сонгосон`;
-    else if (aimagName) area = `${aimagName} аймаг`;
+    if (names.length > 1 && names.length <= 3)
+      return `${names.map((r) => r.soum_name).join(", ")} сум`;
+    if (names.length > 3) return `${names.length} сум сонгосон`;
+    if (aimagName) return `${aimagName} аймаг`;
+    return "";
+  }, [rows, aimags, filters.soums, filters.aimag]);
+
+  // What the result summary describes: the chosen area plus element/class.
+  const scopeLabel = useMemo(() => {
+    const area = areaName;
     const extra = [
       filters.element ? ELEMENTS[filters.element] : "",
       filters.classes.length
@@ -363,9 +406,64 @@ export default function Dashboard() {
       !filters.topHaz &&
       !filters.minHigh
     )
-      return "Монгол Улсын нийт сумдын үнэлгээ";
+      return "Монгол Улсын нэгдсэн үнэлгээ";
     return [area || "Монгол Улс", ...extra].join(" · ");
-  }, [rows, aimags, filters]);
+  }, [areaName, filters]);
+
+  // Map caption: what the map is colouring right now.
+  const classNames = (list: number[]) =>
+    [...list]
+      .sort((a, b) => a - b)
+      .map((c) => CLASS_LABELS[c])
+      .join(", ");
+  const hazardName =
+    filters.hazard === "all" ? "Бүх аюулт үзэгдэл" : hazardLabel(filters.hazard);
+  let mapCaption: { title: string; detail: string };
+  if (hazardView) {
+    const aimagName = hazardAimag
+      ? aimags.find(([code]) => code === hazardAimag)?.[1]
+      : null;
+    mapCaption = {
+      title: hazardZone ? `${hazardName} · аюулын бүсчлэл` : "Аюулын бүсчлэл",
+      detail: [
+        hazardZone && variants.length > 1 ? hazardZone.label : "",
+        aimagName ? `${aimagName} аймаг` : "Монгол Улс",
+        classNames(zoneClasses),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  } else {
+    // Polygons, and points/lines once an area is chosen, are drawn by each
+    // object's own class; otherwise points/lines by the soum element class.
+    const basis = (o: (typeof OVERLAYS)["v"][number]) =>
+      areaFocus || o.geometry === "polygon"
+        ? "объект бүрийн үнэлгээгээр"
+        : "сумын элементийн ангиллаар";
+    const shown = OVERLAYS[filters.mode].filter((o) => overlays.includes(o.id));
+    const layerNames = shown.map(overlayLabel);
+    const bases = new Set(shown.map(basis));
+    const layerText =
+      bases.size === 1
+        ? `${layerNames.join(", ")} · ${[...bases][0]}`
+        : shown.map((o) => `${overlayLabel(o)} (${basis(o)})`).join(", ");
+    const objectClassNames = objectClasses
+      .map((b) => (b === "nd" ? "Өгөгдөлгүй" : CLASS_LABELS[Number(b)]))
+      .join(", ");
+    mapCaption = {
+      title: `${hazardName} · ${MODES.find((m) => m.id === filters.mode)?.label}`,
+      detail: [
+        layerNames.length
+          ? layerText
+          : `Сумын үнэлгээ${filters.element ? `: ${ELEMENTS[filters.element]}` : ""}`,
+        areaName || "Монгол Улс",
+        classNames(filters.classes),
+        layerNames.length ? objectClassNames : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
 
   const activeCount = [
     filters.hazard !== "all",
@@ -481,11 +579,16 @@ export default function Dashboard() {
               <Icon name="filter" size={14} />
               Үнэлгээний ангилал
             </span>
+            {/* Hazard view: the zoning classes (same as the panel's class table). */}
             <ClassPicker
               key={filterResetKey}
-              value={filters.classes}
-              withZero={!!filters.element}
-              onChange={(classes) => update({ classes })}
+              value={hazardView ? zoneClasses : filters.classes}
+              withZero={!hazardView && !!filters.element}
+              onChange={(classes) =>
+                hazardView
+                  ? setZoneClasses([...classes].sort())
+                  : update({ classes })
+              }
             />
           </div>
         </div>
@@ -547,6 +650,7 @@ export default function Dashboard() {
           update={update}
           overlays={overlays}
           setOverlays={setOverlays}
+          combos={combos}
           hazardView={hazardView}
           variantOf={variantOf}
           setVariant={(hazard, i) =>
@@ -599,7 +703,9 @@ export default function Dashboard() {
                   ? aimagOutlines
                   : !!filters.aimag || filters.soums.length > 0
               }
-              areaFocus={!!filters.aimag || filters.soums.length > 0}
+              areaFocus={areaFocus}
+              objectFilter={objectFilter}
+              caption={mapCaption}
               outlineAimag={hazardView ? hazardAimag : null}
               zoneClasses={zoneClasses}
             />
@@ -654,10 +760,18 @@ export default function Dashboard() {
               update={update}
               total={rows.length}
               matched={matched}
+              classBase={classBase}
               scopeLabel={scopeLabel}
               aimagRanks={aimagRanks}
               combos={combos}
               overlays={overlays}
+              objectDist={objectDist}
+              objectClasses={objectClasses}
+              onToggleObjectClass={(b) =>
+                setObjectClasses((cur) =>
+                  cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b],
+                )
+              }
               onShowElement={showElementOnMap}
               onSelectSoum={(fid) => {
                 selectSoum(fid);

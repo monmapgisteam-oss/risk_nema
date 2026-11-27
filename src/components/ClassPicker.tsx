@@ -38,7 +38,11 @@ export default function ClassPicker({ value, onChange, withZero }: Props) {
       className={styles.picker}
       ref={root}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        // Clicking an option's name moves focus nowhere (relatedTarget null);
+        // only close when focus goes to another control. Outside clicks are
+        // handled by the pointerdown listener.
+        const next = event.relatedTarget;
+        if (next && !event.currentTarget.contains(next)) setOpen(false);
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {

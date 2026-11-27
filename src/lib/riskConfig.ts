@@ -235,6 +235,17 @@ export const OVERLAYS: Record<Mode, Overlay[]> = {
 
 export const overlayLabel = (o: Overlay) => o.label ?? ELEMENTS[o.el];
 
+/**
+ * Whether an element layer is assessed for the hazard (its element has a
+ * class field for that hazard in the soum data). Every layer counts for "all".
+ */
+export const overlayAssessed = (
+  o: Overlay,
+  mode: Mode,
+  hazard: string,
+  combos: Record<string, string[]>,
+) => hazard === "all" || (combos[`${mode}:${hazard}`] ?? []).includes(o.el);
+
 /** Layers offered in the panel; the road/rail section layers are hidden. */
 export const panelOverlays = (mode: Mode) =>
   OVERLAYS[mode].filter((o) => !o.id.endsWith("_sec"));

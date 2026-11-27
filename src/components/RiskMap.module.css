@@ -149,3 +149,25 @@
   background: #e3edf6;
   color: #142b42;
 }
+
+/* What the map shows (top-right). */
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: min(420px, 55vw);
+  padding: 9px 13px;
+  border: 1px solid #dce3e9;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 3px 14px #142b4214;
+  backdrop-filter: blur(12px);
+  color: #596b7d;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.caption strong {
+  color: #142b42;
+  font-size: 13px;
+  font-weight: 650;
+}

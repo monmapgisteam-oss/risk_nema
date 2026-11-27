@@ -296,6 +296,14 @@
   background: #f7f9fb;
   border-color: #bac8d6;
 }
+/* Object layer not assessed for the chosen hazard. */
+.hazardChip:disabled {
+  background: #fff;
+  border-color: #e4e9ef;
+  color: #9aa8b6;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .hazardChip[aria-pressed="true"] {
   border-color: #bdcbd9;
   background: #edf3f8;

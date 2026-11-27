@@ -94,6 +94,10 @@ type Props = {
   outlineAimag?: string | null;
   /** Zoning classes to show; empty shows all. */
   zoneClasses?: number[];
+  /** Object ids to keep per object layer (class filter of the dashboard). */
+  objectFilter?: Record<string, { oid: string; ids: number[] }> | null;
+  /** What the map shows, drawn in its top-right corner. */
+  caption?: { title: string; detail: string };
 };
 
 /** "#rrggbb" → [r, g, b, alpha]. */
@@ -212,6 +216,8 @@ export default function RiskMap({
   padRight = 0,
   outlineAimag = null,
   zoneClasses = NO_CLASSES,
+  objectFilter = null,
+  caption,
 }: Props) {
   const mapRef = useRef<HTMLArcgisMapElement | null>(null);
   const homeRef = useRef<HTMLArcgisHomeElement | null>(null);
@@ -828,11 +834,21 @@ export default function RiskMap({
     };
   }, [view, mode, hazard, overlays, areaFocus, soumLayer, borders, nameLayer]);
 
-  // Element features follow the soum filter (server-side definition query).
+  // Element features follow the soum filter (server-side definition query)
+  // and, when classes are chosen in the dashboard, the object class filter.
   useEffect(() => {
-    for (const { layer, overlay } of overlayLayers.current.values())
-      layer.definitionExpression = overlayWhere(overlay, matchedCodes);
-  }, [view, matchedCodes, mode, overlays]);
+    for (const { layer, overlay } of overlayLayers.current.values()) {
+      const pick = objectFilter?.[overlay.id];
+      const ids = pick
+        ? pick.ids.length
+          ? `${pick.oid} IN (${pick.ids.join(",")})`
+          : "1=0"
+        : "";
+      layer.definitionExpression = [overlayWhere(overlay, matchedCodes), ids]
+        .filter(Boolean)
+        .join(" AND ");
+    }
+  }, [view, matchedCodes, mode, overlays, objectFilter]);
 
   // Section layers have no soum code: clip them to the filtered soums.
   useEffect(() => {
@@ -941,6 +957,12 @@ export default function RiskMap({
         >
           <Icon name="label" size={16} />
         </button>
+        {caption && (
+          <div slot="top-right" className={styles.caption} aria-live="polite">
+            <strong>{caption.title}</strong>
+            {caption.detail && <span>{caption.detail}</span>}
+          </div>
+        )}
         <div slot="bottom-right" className={styles.legend}>
           {hasOverlays && (
             <details className={styles.objectLegend} open>

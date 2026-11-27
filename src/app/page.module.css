@@ -63,6 +63,35 @@
   align-self: stretch;
   display: flex;
 }
+.login {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  min-height: 30px;
+  /* Lines up with the toolbar controls (they sit under 20px labels). */
+  margin-top: 20px;
+  padding: 0 12px 0 10px;
+  border: 1px solid #e5bf7080;
+  border-radius: 6px;
+  background: #e5bf7014;
+  color: #f3dca8;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.login:hover {
+  background: #e5bf7026;
+  border-color: #e5bf70;
+}
+.login:focus-visible {
+  outline: 2px solid #e5bf70;
+  outline-offset: 2px;
+}
 .titles {
   min-width: 0;
 }
@@ -112,6 +141,15 @@
   }
   .headerDivider {
     display: none;
+  }
+  .header {
+    position: relative;
+  }
+  .login {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    margin-top: 0;
   }
   .headerMeta,
   .brand > span:last-child {

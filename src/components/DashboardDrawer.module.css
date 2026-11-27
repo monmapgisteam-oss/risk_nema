@@ -664,6 +664,42 @@ button.expName:hover {
   background: #eaf0f6;
   font-weight: 600;
 }
+.distRow[data-off="true"] {
+  opacity: 0.45;
+}
+.distRow[data-static] {
+  cursor: default;
+}
+.distRow[data-static]:hover {
+  background: transparent;
+}
+
+/* Object class distribution: one block per object layer on the map. */
+.objLayer + .objLayer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #edf1f5;
+}
+.objLayerName {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 4px;
+  color: #1b344c;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.objLayerName small {
+  color: #778b9e;
+  font-size: 10.5px;
+  font-weight: 400;
+}
+.objNote {
+  margin: 4px 0 2px;
+  color: #778b9e;
+  font-size: 11px;
+}
 .distRow > b {
   text-align: right;
   font-variant-numeric: tabular-nums;
